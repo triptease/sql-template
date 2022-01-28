@@ -54,7 +54,7 @@ describe('SQL', () => {
 
     it('can spread an array into multiple values', function() {
         const fragment: SqlTemplate = SQL`(${spread(['Dan', 'Bodart'])})`;
-        expect(fragment.text).to.eql(`($1, $2)`);
+        expect(fragment.text).to.eql(`(?, ?)`);
         expect(fragment.values).to.eql(['Dan', 'Bodart']);
     });
 
