@@ -1,0 +1,9 @@
+{
+  "files": [],
+  "references": [
+    {"path": "sql-template/src"},
+    {"path": "sql-template/test"},
+    {"path": "sql-template-postgres/src"},
+    {"path": "sql-template-postgres/test"},
+  ]
+}

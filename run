@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -Eeo pipefail
+
+dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
+export NPM_TOKEN=${NPM_TOKEN-}
+
+source ${dir}/nvm.sh
+
+if [[ ! $(command -v pnpm) ]]; then
+    npm install -g pnpm
+fi
+
+source ${dir}/version.sh
+
+function build() {
+  if [ "${CI,,}" = "true" ]; then
+    pnpm install
+  else
+    pnpm install --no-frozen-lockfile
+  fi
+  pnpm exec tsc --build --force
+  pnpm test -r --filter=*test
+}
+
+function ci() {
+  build
+  pnpm publish -r --filter=!*test --no-git-checks --tag ${TAG}
+}
+
+command="${1-build}"
+set +e; shift; set -Eeo pipefail;
+$command "$@"
