@@ -24,6 +24,7 @@ jobs:
     steps:
       - checkout
       - restore_nvm_cache
+      - setup_remote_docker
       - run:
           name: build
           command: ./run ci
