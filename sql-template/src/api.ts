@@ -1,8 +1,3 @@
-export type SimpleObject = { [key: string]: any };
-
-export interface SqlClient {
-    query(template: SqlTemplate): Promise<SimpleObject[]>;
-}
 
 export interface SqlTemplate {
     readonly text: string;
