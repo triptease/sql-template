@@ -1,5 +1,5 @@
 import {sqlTemplate, SqlTemplate} from "../../sql-template/src";
-import {Client} from "pg";
+import {Client, QueryConfig} from "pg";
 import {compose} from "../../sql-template/src/CompositeTemplate";
 
 const escapeIdentifier = Client.prototype.escapeIdentifier;
@@ -25,4 +25,11 @@ export function id(identifier: string): SqlTemplate {
 
 export function ids(identifiers: string[]): SqlTemplate {
     return compose(identifiers.map(id));
+}
+
+export function queryConfig(template: SqlTemplate): QueryConfig {
+    return {
+        text: postgresText(template),
+        values: [ ...template.values]
+    }
 }

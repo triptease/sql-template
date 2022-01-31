@@ -19,7 +19,8 @@ commands:
 
 jobs:
   build:
-    machine: true
+    docker:
+      - image: cimg/base:2021.04
     steps:
       - checkout
       - restore_nvm_cache
