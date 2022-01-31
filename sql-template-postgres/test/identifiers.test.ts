@@ -1,7 +1,7 @@
 import {describe, it} from 'mocha';
 import {expect} from 'chai';
-import {id, ids, postgresQuery, postgresText} from "@triptease/sql-template-postgres";
 import {SqlTemplate, SQL, spread} from "@triptease/sql-template";
+import {id, ids, postgresQuery, postgresText} from "../src/api";
 
 
 describe('SQL', () => {
