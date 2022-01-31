@@ -12,7 +12,7 @@ describe('Postgres Client', async function () {
     let client: PostgresClient;
     let lastQuery: String;
 
-    this.timeout(20_000);
+    this.timeout(60_000);
 
     before(async function () {
         if (await isDockerAvailable()) {

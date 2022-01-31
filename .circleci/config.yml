@@ -26,6 +26,8 @@ jobs:
       - run:
           name: build
           command: ./run ci
+          environment:
+            - DEBUG: testcontainers*
       - store_artifacts:
           path: ./**/dist/
       - save_nvm_cache
