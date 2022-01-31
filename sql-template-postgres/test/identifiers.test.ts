@@ -1,37 +1,46 @@
 import {describe, it} from 'mocha';
 import {expect} from 'chai';
-import {SqlTemplate, SQL, spread} from "@triptease/sql-template";
-import {id, ids, postgresQuery, postgresText} from "../src/api";
+import {spread, SQL} from "@triptease/sql-template";
+import {id, ids, queryConfig} from "../src/api";
 
 
-describe('SQL', () => {
+describe('Postgres query config', () => {
+
     it('supports correctly escaping identifiers', function() {
         const dynamic = "user's";
-        const fragment: SqlTemplate = SQL`SELECT * FROM ${id(dynamic)} WHERE name = ${'dan'}`;
-        expect(postgresText(fragment)).to.eql(`SELECT * FROM "user's" WHERE name = $1`);
-        expect(fragment.values).to.eql(['dan']);
+        expect(queryConfig(SQL`SELECT * FROM ${id(dynamic)} WHERE name = ${'dan'}`)).to.eql({
+            text: 'SELECT * FROM "user\'s" WHERE name = $1',
+            values: ['dan']
+        });
     });
 
     it('automatically handles arrays of identifiers', function() {
-        const fragment: SqlTemplate = SQL`${ids(['first_name', 'last_name'])}`;
-        expect(postgresText(fragment)).to.eql(`"first_name", "last_name"`);
-        expect(fragment.values).to.eql([]);
+        expect(queryConfig(SQL`${ids(['first_name', 'last_name'])}`)).to.eql({
+            text: `"first_name", "last_name"`,
+            values: []
+        });
     });
 
     it('automatically handles arrays and ids', function() {
-        const fragment: SqlTemplate = SQL`INSERT INTO users (${ids(['first_name','last_name'])}) VALUES (${spread(['Dan', 'Bodart'])})`;
-        expect(postgresText(fragment)).to.eql(`INSERT INTO users ("first_name", "last_name") VALUES ($1, $2)`);
-        expect(fragment.values).to.eql(['Dan', 'Bodart']);
+        const template = SQL`INSERT INTO users (${ids(['first_name', 'last_name'])}) VALUES (${spread(['Dan', 'Bodart'])})`;
+        expect(queryConfig(template)).to.eql({
+            text: `INSERT INTO users ("first_name", "last_name") VALUES ($1, $2)`,
+            values: ['Dan', 'Bodart']
+        });
     });
 
     it('handles null', function() {
-        const fragment: SqlTemplate = SQL`SELECT * FROM users WHERE name = ${null}`;
-        expect(postgresQuery(fragment)).to.eql('SELECT * FROM users WHERE name = null');
+        expect(queryConfig(SQL`SELECT * FROM users WHERE name = ${null}`)).to.eql({
+            text: `SELECT * FROM users WHERE name = $1`,
+            values: [null]
+        });
     });
 
     it('maps undefined to null', function() {
-        const fragment: SqlTemplate = SQL`SELECT * FROM users WHERE name = ${undefined}`;
-        expect(postgresQuery(fragment)).to.eql('SELECT * FROM users WHERE name = null');
+        expect(queryConfig(SQL`SELECT * FROM users WHERE name = ${undefined}`)).to.eql({
+            text: `SELECT * FROM users WHERE name = $1`,
+            values: [null]
+        });
     });
 
 });
