@@ -1,41 +1,48 @@
-import {describe, it} from 'mocha';
+import {describe, it, Suite} from 'mocha';
 import {expect} from 'chai'
 import {PostgreSqlContainer, StartedPostgreSqlContainer} from 'testcontainers';
 import {PostgresClient} from "../src";
 import {PoolConfig} from "pg";
 import {SQL} from "../../sql-template/src";
+import {getDockerInfo} from "testcontainers/dist/docker/functions/get-info";
 
-describe('Postgres Client', function() {
-    this.timeout(20_000);
-
+describe('Postgres Client', async function () {
     let postgres: StartedPostgreSqlContainer;
     let config: PoolConfig;
     let client: PostgresClient;
     let lastQuery: String;
 
-    before(async () => {
-        postgres = await new PostgreSqlContainer().start();
+    this.timeout(20_000);
 
-        config = {
-            host: postgres.getHost(),
-            port: postgres.getPort(),
-            database: postgres.getDatabase(),
-            user: postgres.getUsername(),
-            password: postgres.getPassword(),
-        };
+    before(async function () {
+        if (await isDockerAvailable()) {
+            postgres = await new PostgreSqlContainer().start();
+            config = {
+                host: postgres.getHost(),
+                port: postgres.getPort(),
+                database: postgres.getDatabase(),
+                user: postgres.getUsername(),
+                password: postgres.getPassword(),
+            };
+        } else {
+            this.skip();
+        }
     });
 
     after(async () => {
-        postgres.stop();
-        client.close();
+        if (postgres) {
+            await postgres.stop();
+        }
     });
 
     beforeEach(() => {
         client = new PostgresClient(config, (sql) => lastQuery = sql);
     })
 
-    afterEach(() => {
-        client.close();
+    afterEach(async () => {
+        if (client) {
+            await client.close();
+        }
     })
 
     it('is able to query postgres', async function () {
@@ -48,3 +55,13 @@ describe('Postgres Client', function() {
         expect(lastQuery).to.eql("SELECT * from pg_database WHERE datname=$1")
     });
 });
+
+async function isDockerAvailable() {
+    try {
+        await getDockerInfo();
+    } catch (e) {
+        console.warn("Docker not available skipping tests");
+        return false;
+    }
+    return true;
+}
