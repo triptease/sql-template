@@ -21,10 +21,8 @@ export function SQL(text: TemplateStringsArray, ...values: any[]): SqlTemplate {
         const newText = t + calculateAdditionalText(value);
         const newValues = calculateNewValues(value);
         return sqlTemplate(a.text + newText, [...a.values, ...newValues]);
-    }, EmptySqlTemplate);
+    }, sqlTemplate());
 }
-
-const EmptySqlTemplate = sqlTemplate('', []);
 
 export function spread(values: any[]): SqlTemplate {
     return compose(values.map(v => sqlTemplate(placeholder, calculateNewValues(v))));

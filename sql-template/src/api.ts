@@ -13,7 +13,7 @@ export function isSqlTemplate(value: any): value is SqlTemplate {
     return value && typeof value['text'] === 'string' && Array.isArray(value['values']);
 }
 
-export function sqlTemplate(text: string, values: ReadonlyArray<any>): SqlTemplate {
+export function sqlTemplate(text: string = '', values: ReadonlyArray<any> = []): SqlTemplate {
     return {text, values}
 }
 
