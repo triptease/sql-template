@@ -19,12 +19,10 @@ commands:
 
 jobs:
   build:
-    docker:
-      - image: cimg/base:2021.04
+    machine: true
     steps:
       - checkout
       - restore_nvm_cache
-      - setup_remote_docker
       - run:
           name: build
           command: ./run ci
