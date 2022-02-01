@@ -3,7 +3,7 @@ import {template, Template} from "./Template";
 import {text} from "./Text";
 
 export class Value extends Expression {
-    constructor(public value: any) {
+    constructor(public readonly value: any) {
         super();
     }
 }

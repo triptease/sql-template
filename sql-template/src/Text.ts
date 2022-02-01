@@ -1,7 +1,7 @@
 import {Expression} from "./Expression";
 
 export class Text extends Expression {
-    constructor(public text: string) {
+    constructor(public readonly text: string) {
         super();
     }
 }

@@ -2,7 +2,7 @@ import {Expression} from "./Expression";
 import {Text} from "./Text";
 
 export class Template extends Expression {
-    constructor(public expressions: Expression[]) {
+    constructor(public readonly expressions: ReadonlyArray<Expression>) {
         super();
     }
 }

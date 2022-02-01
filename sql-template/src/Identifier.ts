@@ -3,7 +3,7 @@ import {template, Template} from "./Template";
 import {text} from "./Text";
 
 export class Identifier extends Expression {
-    constructor(public identifier: string) {
+    constructor(public readonly identifier: string) {
         super();
     }
 }
