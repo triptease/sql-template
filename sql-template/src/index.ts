@@ -1,3 +1,4 @@
+export * from "./Expression"
 export * from "./Identifier"
 export * from "./SQL"
 export * from "./Template"
