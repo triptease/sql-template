@@ -14,7 +14,7 @@ export function debugQuery(sql: Template): string {
     }, '');
 }
 
-export function postgresSql(sql: Template): string {
+function toSql(sql: Template): string {
     let count = 1;
     return sql.expressions.reduce((a: string, e: Expression) => {
         if (e instanceof Text) return a + e.text;
@@ -26,7 +26,7 @@ export function postgresSql(sql: Template): string {
 
 export function statement(template: Template): QueryConfig {
     return {
-        text: postgresSql(template),
+        text: toSql(template),
         values: template.expressions.flatMap(e => e instanceof Value ? [e.value] : [])
     }
 }
