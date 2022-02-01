@@ -59,7 +59,7 @@ describe('SQL', () => {
         expect(SQL`(${spread(['Dan', 'Bodart'])})`).to.eql(template(
             text('('),
             value('Dan'),
-            text(','),
+            text(', '),
             value('Bodart'),
             text(')'),
         ));
