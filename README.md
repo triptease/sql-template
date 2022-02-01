@@ -14,7 +14,7 @@ This is yet another SQL tagged template for Typescript/Javascript
 ## Installation
 
 ```shell
-npm install @triptease\sql-template @triptease\sql-template-postgres
+npm install @triptease/sql-template @triptease/sql-template-postgres
 ```
 
 ## Usage
