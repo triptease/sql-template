@@ -15,7 +15,7 @@ export function value(value: any): Expression {
 }
 
 
-export function values(values: any[], separator: string = ','): Template {
+export function values(values: any[], separator: string = ', '): Template {
     return template(...values.flatMap((v, i) => i > 0 ? [text(separator), value(v)] : [value(v)]));
 }
 

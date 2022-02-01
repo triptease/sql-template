@@ -1,8 +1,5 @@
 import {Client, QueryConfig} from "pg";
-import {Text} from '@triptease/sql-template/Text';
-import {Identifier} from '@triptease/sql-template/Identifier';
-import {Template} from '@triptease/sql-template/Template';
-import {Value} from '@triptease/sql-template/Value';
+import {Identifier, Template, Text, Value} from '@triptease/sql-template';
 
 const escapeIdentifier = Client.prototype.escapeIdentifier;
 const escapeLiteral = Client.prototype.escapeLiteral;
