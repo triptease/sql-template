@@ -38,7 +38,7 @@ function hashSHA256(value: BinaryLike): string {
 export function prepareStatement(template: Template, name?: string): QueryConfig {
     const {text, values} = statement(template);
     return {
-        name: name ?? `urn:hash::sha256:${hashSHA256(text)}`,
+        name: name ?? hashSHA256(text).slice(0, 63),
         text,
         values
     }
