@@ -9,6 +9,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "inlineSources": true,
     "verbatimModuleSyntax": true,
     "isolatedDeclarations": true,
     "forceConsistentCasingInFileNames": true,

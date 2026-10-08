@@ -41,8 +41,14 @@ function test() {
   bun run test "$@"
 }
 
+# Publishes to GitHub Packages (and npmjs when NPM_PUBLISH=true). Use `./run release --dry-run` locally.
+function release() {
+  bun scripts/release.ts "$@"
+}
+
 function ci() {
   build
+  release "$@"
 }
 
 command="${1-build}"

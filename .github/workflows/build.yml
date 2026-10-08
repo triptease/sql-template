@@ -40,3 +40,27 @@ jobs:
       - run: bun run build
       - run: bun run typecheck
       - run: bun run test
+
+  publish:
+    needs: test
+    if: github.event_name == 'push' && github.repository == 'triptease/sql-template'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # npm Trusted Publishing (OIDC) and provenance
+      packages: write   # GitHub Packages (npm.pkg.github.com)
+    env:
+      # Repo variable: set to "true" once npm Trusted Publishing is configured (see README "Releasing").
+      NPM_PUBLISH: ${{ vars.NPM_PUBLISH }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0   # the version uses git rev-list --count HEAD
+          persist-credentials: false
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+      - run: bun install --frozen-lockfile
+      - run: bun scripts/release.ts   # clean build, stamp dist/package.json, publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional fallback when Trusted Publishing is not configured; empty if the secret does not exist.
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

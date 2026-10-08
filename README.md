@@ -21,7 +21,8 @@ bun add @triptease/sql-template @triptease/sql-template-postgres
 
 Both packages are plain ESM JavaScript with type declarations, so they work in Node and Bun.
 `@triptease/sql-template` has no dependencies and `@triptease/sql-template-postgres` depends only on it
-(it does not depend on `pg`; bring your own driver).
+(it does not depend on `pg`; bring your own driver). In Node they can also be loaded with `require()`
+(Node 20.19+/22.12+, which can `require()` ES modules).
 
 ## Usage
 
@@ -143,3 +144,52 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres ./run
 
 Without `DATABASE_URL` they are skipped locally (with a warning) but fail when `CI=true`; the GitHub Actions
 test job provides a `postgres:18` service.
+
+## Releasing
+
+Every push to `triptease/sql-template` that passes the `test` job runs the `publish` job in
+[`.github/workflows/build.yml`](.github/workflows/build.yml), which runs `scripts/release.ts`:
+
+* Version: `0.<git rev-list --count HEAD>.<GITHUB_RUN_NUMBER>`; dist-tag `latest` on `master`, `dev` on other branches.
+* It does a clean `tsc --build`, then writes `<pkg>/dist/package.json` from `<pkg>/src/package.json` (version
+  stamped, `workspace:*` replaced by that version, `main`/`types`/`exports` pointing at the `.js`/`.d.ts`
+  files, explicit `files`) and copies this README next to it. The `dist` directory is what gets published, so
+  import paths never contain `src/` or `dist/`. It fails if any `workspace:` range is left.
+* It publishes core first, then postgres, with `npm publish <pkg>/dist`:
+  * to **GitHub Packages** (`npm.pkg.github.com`) on every run, using the workflow's `GITHUB_TOKEN`;
+  * to **npmjs** only when the repo variable `NPM_PUBLISH` is `true`, with `--access public --provenance`,
+    authenticated by npm Trusted Publishing (OIDC), or by an `NPM_TOKEN` secret if one exists.
+* Versions that are already on a registry are skipped, so a failed run can simply be re-run.
+
+Check what would be published without uploading anything (`npm publish --dry-run`; add `NPM_PUBLISH=true`
+to include npmjs):
+
+```shell
+./run release --dry-run
+```
+
+`./run ci` runs the full build and tests, then the release script.
+
+### One-off setup (needs an npm org admin and a GitHub repo admin)
+
+1. On npmjs.com, for **each** of `@triptease/sql-template` and `@triptease/sql-template-postgres`:
+   Settings → Trusted Publisher → GitHub Actions, organization `triptease`, repository `sql-template`,
+   workflow filename `build.yml`, environment empty. The workflow filename is part of the trust
+   relationship, so do not rename `build.yml`. Once it works, npm recommends disallowing token publishing
+   for the packages (Settings → Publishing access).
+2. In the GitHub repo, set the Actions variable `NPM_PUBLISH` to `true` (Settings → Secrets and variables →
+   Actions → Variables). Until then npmjs publishing is skipped and only GitHub Packages is published.
+   (Alternative to step 1: add an `NPM_TOKEN` repo secret with publish rights; the publish step uses it if set.)
+3. GitHub Packages: after the first publish, check both packages under the org's Packages page, make sure
+   they are linked to this repository and set their visibility to public if they should be visible
+   outside the org.
+
+### Installing from GitHub Packages
+
+npmjs is the main channel. Installing from GitHub Packages needs authentication even for public packages:
+a token with `read:packages` and an `.npmrc` like
+
+```ini
+@triptease:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
