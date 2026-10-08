@@ -1,8 +1,9 @@
 import {Expression, isExpression, kind, kindOf} from "./Expression.js";
+import {invalidExpression} from "./invalid.js";
 
 function flatten(expressions: readonly unknown[], result: Expression[]): Expression[] {
     for (const e of expressions) {
-        if (!isExpression(e)) throw new TypeError(`Template can only contain Expressions but got ${e === null ? 'null' : typeof e}`);
+        if (!isExpression(e)) throw invalidExpression(e, 'Template');
         const k = kindOf(e);
         if (k === 'template') flatten((e as Template).expressions, result);
         else if (k === 'text' && (e as { text?: unknown }).text === '') continue;

@@ -109,6 +109,32 @@ describe('expression identity', () => {
         expect(isValue(value(structuredClone(text('DROP TABLE users'))))).toBe(true);
     });
 
+    describe('user subclasses of Expression (unsupported: they have no brand)', () => {
+        class Now extends Expression {
+        }
+
+        it('are rejected by the SQL tag instead of being bound as a value', () => {
+            expect(() => SQL`select ${new Now()}`).toThrow(/Now extends Expression but is not a supported kind of expression/);
+        });
+
+        it('are rejected by value() and values()', () => {
+            expect(() => value(new Now())).toThrow(TypeError);
+            expect(() => values([1, new Now()])).toThrow(/Now extends Expression/);
+        });
+
+        it('are rejected by template() with a message naming the subclass', () => {
+            expect(() => template(text('select '), new Now())).toThrow(/Template: Now extends Expression/);
+        });
+
+        it('still allow subclasses of the built-in expressions, which inherit the brand', () => {
+            class Money extends Value {
+            }
+            const money = new Money(5);
+            expect(SQL`select ${money}`.expressions).toEqual([text('select '), money]);
+            expect(kindOf(money)).toEqual('value');
+        });
+    });
+
     describe('with a duplicate copy of the package', () => {
         let copy: typeof core;
         let dispose: () => void;

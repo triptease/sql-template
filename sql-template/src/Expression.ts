@@ -15,7 +15,11 @@ export interface Expression {
     readonly [kind]: Kind;
 }
 
-/** Base class of all expressions. Every concrete expression defines its `kind` brand on its prototype. */
+/**
+ * Base class of all expressions. Every concrete expression defines its `kind` brand on its prototype.
+ * Subclassing it outside this package is not supported: such instances have no brand and are rejected
+ * by `SQL`, `value` and `template` (compose the built-in expressions instead).
+ */
 export abstract class Expression {
 }
 
