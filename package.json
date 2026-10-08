@@ -1,5 +1,21 @@
 {
-	"devDependencies": {
-		"typescript": "^4.5.4"
-	}
+  "name": "sql-template-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "sql-template/src",
+    "sql-template/test",
+    "sql-template-postgres/src",
+    "sql-template-postgres/test"
+  ],
+  "scripts": {
+    "clean": "rm -rf sql-template/dist sql-template-postgres/dist && find . -name '*.tsbuildinfo' -not -path '*/node_modules/*' -delete",
+    "build": "tsc --build sql-template/src sql-template-postgres/src",
+    "typecheck": "tsc --build",
+    "test": "bun test sql-template/test sql-template-postgres/test"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.2",
+    "typescript": "7.0.2"
+  }
 }

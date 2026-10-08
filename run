@@ -1,32 +1,50 @@
 #!/usr/bin/env bash
-set -Eeo pipefail
+# Thin entrypoint: tool versions live in mise.toml, tasks in package.json.
+set -Eeuo pipefail
 
-dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-export NPM_TOKEN=${NPM_TOKEN-}
+dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
+cd "${dir}"
 
-source ${dir}/nvm.sh
-
-if [[ ! $(command -v pnpm) ]]; then
-    npm install -g pnpm
+if ! command -v mise >/dev/null 2>&1; then
+  echo "mise is required (it installs the pinned node and bun from mise.toml)." >&2
+  echo "Install it from https://mise.jdx.dev/getting-started.html then re-run ./run" >&2
+  exit 1
 fi
 
-source ${dir}/version.sh
+mise install --quiet
+
+function bun() {
+  mise exec -- bun "$@"
+}
+
+function install() {
+  if [ "${CI:-}" = "true" ]; then
+    bun install --frozen-lockfile
+  else
+    bun install
+  fi
+}
+
+function clean() {
+  bun run clean
+}
 
 function build() {
-  if [ "${CI,,}" = "true" ]; then
-    pnpm install
-  else
-    pnpm install --no-frozen-lockfile
-  fi
-  pnpm exec tsc --build --force
-  pnpm test -r --filter=*test
+  install
+  clean
+  bun run build
+  bun run typecheck
+  bun run test
+}
+
+function test() {
+  bun run test "$@"
 }
 
 function ci() {
   build
-  pnpm publish -r --filter=!*test --no-git-checks --tag ${TAG}
 }
 
 command="${1-build}"
-set +e; shift; set -Eeo pipefail;
-$command "$@"
+[ $# -gt 0 ] && shift
+"${command}" "$@"

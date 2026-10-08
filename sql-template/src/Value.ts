@@ -1,6 +1,6 @@
-import {Expression} from "./Expression";
-import {template, Template} from "./Template";
-import {text} from "./Text";
+import {Expression} from "./Expression.js";
+import {template, Template} from "./Template.js";
+import {text} from "./Text.js";
 
 export class Value extends Expression {
     constructor(public readonly value: any) {
@@ -19,4 +19,4 @@ export function values(values: any[], separator: string = ', '): Template {
     return template(...values.flatMap((v, i) => i > 0 ? [text(separator), value(v)] : [value(v)]));
 }
 
-export const spread = values;
+export const spread: typeof values = values;

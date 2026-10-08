@@ -1,6 +1,6 @@
-import {template, Template} from "./Template";
-import {text} from "./Text";
-import {value} from "./Value";
+import {template, Template} from "./Template.js";
+import {text} from "./Text.js";
+import {value} from "./Value.js";
 
 export function SQL(chunks: TemplateStringsArray, ...values: any[]): Template {
     return template(...chunks.flatMap((chunk, index) => {

@@ -1,5 +1,5 @@
-import {Expression} from "./Expression";
-import {Text} from "./Text";
+import {Expression} from "./Expression.js";
+import {Text} from "./Text.js";
 
 export class Template extends Expression {
     constructor(public readonly expressions: ReadonlyArray<Expression>) {

@@ -1,17 +1,10 @@
 {
   "extends": "../../tsconfig-base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "types": ["bun"],
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
-  "include": [
-    "**/*"
-  ],
-  "references": [
-    {
-      "path": "../src"
-    },
-    {
-      "path": "../../sql-template/src"
-    }
-  ]
+  "include": ["**/*.ts"],
+  "references": [{"path": "../src"}, {"path": "../../sql-template/src"}]
 }

@@ -1,14 +1,10 @@
 {
   "extends": "../../tsconfig-base.json",
   "compilerOptions": {
-    "outDir": "../dist"
+    "rootDir": ".",
+    "outDir": "../dist",
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
-  "references": [
-    {
-      "path": "../../sql-template/src"
-    }
-  ],
-  "include": [
-    "**/*"
-  ]
+  "include": ["**/*.ts"],
+  "references": [{"path": "../../sql-template/src"}]
 }

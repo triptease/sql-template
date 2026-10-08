@@ -54,3 +54,16 @@ client.query(statement(SQL`select * from ${id(table)} where name = ${name}`));
 It is incredibly simple to extend to other DBs, have a look at the [postgres implementation](https://github.com/triptease/sql-template/blob/master/sql-template-postgres/src/index.ts#L17). 
 
 
+
+
+## Development
+
+Tool versions (node, bun) are pinned in `mise.toml`. Install [mise](https://mise.jdx.dev/getting-started.html), then:
+
+```shell
+mise install   # installs the pinned node and bun
+./run          # install deps, clean, build (tsc --build), typecheck and test (bun test)
+```
+
+The repo is a bun workspace: each package has a published `src/package.json` (runtime dependencies only)
+and a private `test/package.json` (test dependencies). Tests import the packages by name.

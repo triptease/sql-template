@@ -1,6 +1,6 @@
-import {Expression} from "./Expression";
-import {template, Template} from "./Template";
-import {text} from "./Text";
+import {Expression} from "./Expression.js";
+import {template, Template} from "./Template.js";
+import {text} from "./Text.js";
 
 export class Identifier extends Expression {
     constructor(public readonly identifier: string) {

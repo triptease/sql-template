@@ -1,29 +1,20 @@
 {
   "compilerOptions": {
-    "composite": true,
-    "skipLibCheck": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
-    "suppressImplicitAnyIndexErrors": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "noImplicitAny": true,
+    "target": "es2024",
+    "lib": ["es2024"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "strict": true,
-    "module": "commonjs",
-    "target": "ES6",
-    "noEmitOnError": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
     "sourceMap": true,
-    "importHelpers": true,
-    "emitDecoratorMetadata": false,
-    "experimentalDecorators": true,
+    "verbatimModuleSyntax": true,
+    "isolatedDeclarations": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "preserveSymlinks": false,
-    "lib": [
-      "esnext"
-    ]
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "types": []
   },
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

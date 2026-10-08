@@ -1,8 +1,8 @@
-export * from "./Expression"
-export * from "./Identifier"
-export * from "./SQL"
-export * from "./Template"
-export * from "./Text"
-export * from "./Value"
+export * from "./Expression.js"
+export * from "./Identifier.js"
+export * from "./SQL.js"
+export * from "./Template.js"
+export * from "./Text.js"
+export * from "./Value.js"
 
 

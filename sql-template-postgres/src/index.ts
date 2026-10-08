@@ -1,9 +1,10 @@
-import {Client, QueryConfig} from "pg";
-import {BinaryLike, createHash, randomBytes} from 'crypto';
-import {Expression, Identifier, Template, Text, Value} from '@triptease/sql-template';
+import pg from "pg";
+import type {QueryConfig} from "pg";
+import {createHash} from 'node:crypto';
+import {type Expression, Identifier, type Template, Text, Value} from '@triptease/sql-template';
 
-const escapeIdentifier = Client.prototype.escapeIdentifier;
-const escapeLiteral = Client.prototype.escapeLiteral;
+const escapeIdentifier = pg.Client.prototype.escapeIdentifier;
+const escapeLiteral = pg.Client.prototype.escapeLiteral;
 
 export function debugQuery(sql: Template): string {
     return sql.expressions.reduce((a: string, e: Expression) => {
@@ -31,7 +32,7 @@ export function statement(template: Template): QueryConfig {
     }
 }
 
-function hashSHA256(value: BinaryLike): string {
+function hashSHA256(value: string): string {
     return createHash('sha256').update(value).digest('hex');
 }
 
