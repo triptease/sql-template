@@ -55,11 +55,27 @@ await sql.begin(tx => unsafe(tx, SQL`insert into users (name) values (${name})`)
 ```
 
 Despite its name (taken from Bun's `sql.unsafe`, which runs SQL text it did not build itself), `unsafe` sends
-every value as a bound parameter and escapes every identifier. To match `pg`, JS arrays are sent as postgres
-array literals (so `= any(${userIds}::int[])` and `text[]` columns work) and Dates as ISO strings. The trade-off
-is that an array bound directly to a `json`/`jsonb` parameter is not supported: wrap it in an object, or use
-`${JSON.stringify(list)}::text::jsonb`. Pass objects (not JSON strings) for `json`/`jsonb` parameters. Statement names
-are not used with Bun as it prepares and caches statements per connection automatically.
+every value as a bound parameter and escapes every identifier. Statement names are not used with Bun as it
+prepares and caches statements per connection automatically.
+
+To get closer to `pg`, `unsafe` sends JS arrays as postgres array literals (so `= any(${userIds}::int[])` and
+`text[]` columns work), bigints as strings (so `numeric` values outside the int8 range work) and Dates as UTC ISO
+strings. Bun encodes each parameter according to the type postgres infers for it, which the library cannot see,
+so some differences from `pg` remain. These do **not** raise errors, they silently store different data:
+
+| Bound value                                   | `pg`                                   | `Bun.sql` via `unsafe`                         |
+|-----------------------------------------------|----------------------------------------|------------------------------------------------|
+| object to a `json`/`jsonb` parameter          | JSON                                   | JSON                                           |
+| object to any other parameter (e.g. `text`)   | `JSON.stringify(object)`               | the string `[object Object]`                   |
+| JSON string to `json`/`jsonb`                 | the parsed JSON                        | a JSON **string** scalar (double encoded)      |
+| array to `json`/`jsonb`                       | error (invalid input syntax)           | a JSON string of the array literal (`"{\"1\",\"2\"}"`) |
+| Date to `timestamp` (without time zone) / `text` | the process's local time            | UTC (same as `debugQuery`)                     |
+| object with `toPostgres()`                    | its result                             | not supported (`[object Object]`)              |
+
+So with Bun: pass objects (not JSON strings) and only to `json`/`jsonb` parameters; for a JSON string or an
+array use `${JSON.stringify(list)}::text::jsonb` (or wrap the array in an object); and use `timestamptz` (or
+run with `TZ=UTC`) when the same Dates must give the same results with both drivers. The integration tests pin
+each of these differences.
 
 ### Composing
 
@@ -105,7 +121,9 @@ versions) still work, while plain data (such as parsed JSON) can never be mistak
 `debugQuery` escapes every value (strings, numbers, booleans, null, Dates, Buffers, arrays and objects), but
 it is meant for logging: execute queries with `statement`/`prepareStatement`/`unsafe` so values are bound as
 parameters. Inlined literals are not always typed the way parameters are (e.g. arrays become array literal
-strings and objects JSON strings, which need a cast in some contexts).
+strings and objects JSON strings, which need a cast in some contexts). Dates are inlined as UTC ISO strings, so for
+`timestamp` (without time zone) or text targets the output only matches what `pg` executes when the process runs
+with `TZ=UTC` (it always matches `unsafe` with Bun).
 
 ## Breaking changes (since the pg-only releases)
 
@@ -116,6 +134,21 @@ strings and objects JSON strings, which need a cast in some contexts).
 * Adapters throw on expressions they do not understand instead of silently dropping them, and SQL with an
   invalid escape sequence (e.g. ``SQL`\u` ``) throws instead of producing the text `undefined`.
 * Public types use `unknown` instead of `any`; `ids` takes `string[]`.
+* The packages are ESM only (they used to be CommonJS):
+  * `require()` needs Node 20.19+/22.12+ (older Node versions can only `import` them).
+  * TypeScript consumers need `"module"`/`"moduleResolution"` set to `nodenext` (or `node20`) or `bundler`.
+    A CommonJS project using `node16` (or `nodenext` before TypeScript 5.8) gets error TS1479; switch to one of
+    those settings or load the packages with `import()`.
+  * Only the package roots are exported: deep imports such as `@triptease/sql-template/Text` fail with
+    `ERR_PACKAGE_PATH_NOT_EXPORTED`. Import everything from `@triptease/sql-template` /
+    `@triptease/sql-template-postgres`.
+* `Expression` is abstract and subclassing it is not supported: an instance of your own subclass is rejected with
+  a `TypeError` (compose `SQL`/`text`/`id`/`value`/`template` instead).
+* `debugQuery` output changed: `null`/`undefined` render as `NULL`, booleans as `TRUE`/`FALSE`, negative numbers
+  are parenthesised, `NaN`/`Infinity` are quoted, and Dates, Buffers, arrays and objects are rendered as escaped
+  literals. Do not parse or compare its output.
+* A `Template` built directly with `new Template([...])` now keeps the values of nested templates (they used to be
+  dropped).
 
 ## Extending
 

@@ -11,11 +11,19 @@ export interface UnsafeSQL {
     unsafe(text: string, values?: unknown[]): Promise<unknown>;
 }
 
+/**
+ * Converts the values Bun.sql binds differently from pg. Bun encodes a parameter according to the type
+ * postgres infers for it, which is not known here, so some differences remain (see the README):
+ * plain objects only work for json/jsonb parameters, and strings or arrays bound to json/jsonb are stored
+ * as JSON strings.
+ */
 function bunValue(value: unknown): unknown {
     // Bun cannot bind JS arrays to array typed parameters, so send a postgres array literal like pg does
     if (Array.isArray(value)) return arrayLiteral(value);
-    // Bun sends Date.toString() unless the parameter is a timestamp
+    // Bun sends Date.toString() unless the parameter is a timestamp (always UTC, unlike pg's local time)
     if (value instanceof Date) return value.toISOString();
+    // Bun binds bigints as int8, which fails outside its range (e.g. numeric); pg sends them as strings
+    if (typeof value === 'bigint') return value.toString();
     return value;
 }
 

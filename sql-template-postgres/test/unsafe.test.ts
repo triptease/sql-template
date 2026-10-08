@@ -28,13 +28,19 @@ describe('unsafe (Bun.sql)', () => {
         expect(sql.calls[0]![1]).toEqual(['{"1","2"}', '{"a\\"b","c,d",NULL}', '2024-01-02T03:04:05.678Z', '{"2024-01-02T03:04:05.678Z"}']);
     });
 
+    it('converts bigints to strings (like pg) so values outside the int8 range work', async () => {
+        const sql = recorder();
+        await unsafe(sql, SQL`select ${12345678901234567890n}, ${-1n}, ${[1n, 2n]}`);
+        expect(sql.calls[0]![1]).toEqual(['12345678901234567890', '-1', '{"1","2"}']);
+    });
+
     it('passes everything else through unchanged', async () => {
         const sql = recorder();
         const object = {a: 1};
         const bytes = new Uint8Array([1, 2]);
-        await unsafe(sql, SQL`select ${null}, ${object}, ${bytes}, ${1n}, ${true}`);
+        await unsafe(sql, SQL`select ${null}, ${object}, ${bytes}, ${'s'}, ${true}`);
         const values = sql.calls[0]![1]!;
-        expect(values).toEqual([null, object, bytes, 1n, true]);
+        expect(values).toEqual([null, object, bytes, 's', true]);
         expect(values[1]).toBe(object);
         expect(values[2]).toBe(bytes);
     });

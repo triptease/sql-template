@@ -28,6 +28,27 @@ interface Client {
     raw(text: string): Promise<Row[]>;
 }
 
+/** Runs `f` with process.env.TZ set to `timeZone` (bun and node apply TZ changes at runtime) */
+async function inTimeZone<T>(timeZone: string, f: () => Promise<T>): Promise<T> {
+    const previous = process.env.TZ;
+    process.env.TZ = timeZone;
+    try {
+        return await f();
+    } finally {
+        if (previous === undefined) delete process.env.TZ;
+        else process.env.TZ = previous;
+    }
+}
+
+// The documented differences between pg and Bun.sql (README "Bun with Bun.sql"), pinned so a change is noticed.
+const date = new Date('2024-01-02T03:04:05.678Z');
+const withoutTimeZone = SQL`SELECT ${date}::timestamp::text AS v, ${date}::text AS t`;
+const utc = {v: '2024-01-02 03:04:05.678', t: '2024-01-02T03:04:05.678Z'};
+const jsonString = SQL`SELECT ${JSON.stringify({a: 1})}::jsonb AS v, jsonb_typeof(${JSON.stringify({a: 1})}::jsonb) AS t`;
+const arrayToJsonb = SQL`SELECT ${[1, 2]}::jsonb AS v, jsonb_typeof(${[1, 2]}::jsonb) AS t`;
+const objectToText = SQL`SELECT ${{a: 1}}::text AS v`;
+const toPostgres = SQL`SELECT ${{toPostgres: () => 'custom'}}::text AS v`;
+
 const injection = `'); DROP TABLE users; --`;
 const nasty = `it's a "quoted" \\back\\slash\\' ${injection}`;
 
@@ -93,6 +114,16 @@ function sharedTests(name: string, client: () => Client) {
             expect(row).toEqual({v: object, t: nasty});
         });
 
+        it('binds JSON strings and arrays as jsonb via ::text::jsonb', async () => {
+            const [row] = await client().run(SQL`SELECT ${JSON.stringify({a: [1, 2]})}::text::jsonb AS o, ${JSON.stringify([1, 'b'])}::text::jsonb AS a`);
+            expect(row).toEqual({o: {a: [1, 2]}, a: [1, 'b']});
+        });
+
+        it('binds bigints, including values outside the int8 range', async () => {
+            const [row] = await client().run(SQL`SELECT ${12345678901234567890n}::numeric::text AS n, ${9007199254740993n}::int8::text AS i, ${-5n}::int4 AS s`);
+            expect(row).toEqual({n: '12345678901234567890', i: '9007199254740993', s: -5});
+        });
+
         describe('debugQuery output gives the same results as the bound statement', () => {
             const cases: [string, Template][] = [
                 ['strings', SQL`SELECT ${nasty}::text AS v`],
@@ -105,6 +136,7 @@ function sharedTests(name: string, client: () => Client) {
                 ['arrays', SQL`SELECT ${['a"b', 'c,d', 'e\\f', null, injection]}::text[]::text AS v`],
                 ['nested arrays', SQL`SELECT ${[[1, 2], [3, 4]]}::int[]::text AS v`],
                 ['objects', SQL`SELECT ${{text: nasty}}::jsonb AS v`],
+                ['bigints', SQL`SELECT ${12345678901234567890n}::numeric::text AS v`],
                 ['identifiers', SQL`SELECT 1 AS ${id(`a"b'c`)}`],
             ];
             for (const [description, template] of cases) {
@@ -133,6 +165,27 @@ describe.skipIf(!url)('postgres integration (pg)', () => {
     });
 
     sharedTests('pg', () => client);
+
+    describe('differences from Bun.sql', () => {
+        it('sends Dates in local time, so timestamp (without time zone) and text targets depend on TZ', async () => {
+            expect(await inTimeZone('America/New_York', () => client.run(withoutTimeZone)))
+                .toEqual([{v: '2024-01-01 22:04:05.678', t: '2024-01-01T22:04:05.678-05:00'}]);
+            expect(await inTimeZone('UTC', () => client.run(withoutTimeZone))).toEqual([{v: utc.v, t: '2024-01-02T03:04:05.678+00:00'}]);
+        });
+
+        it('sends objects as JSON (or their toPostgres()) for any parameter type', async () => {
+            expect(await client.run(objectToText)).toEqual([{v: '{"a":1}'}]);
+            expect(await client.run(toPostgres)).toEqual([{v: 'custom'}]);
+        });
+
+        it('parses JSON strings bound to jsonb', async () => {
+            expect(await client.run(jsonString)).toEqual([{v: {a: 1}, t: 'object'}]);
+        });
+
+        it('rejects arrays bound to jsonb', async () => {
+            await expect(client.run(arrayToJsonb)).rejects.toThrow('invalid input syntax for type json');
+        });
+    });
 
     it('runs prepared statements', async () => {
         const connection = await pool.connect();
@@ -165,6 +218,28 @@ describe.skipIf(!url)('postgres integration (Bun.sql)', () => {
     });
 
     sharedTests('bun', () => client);
+
+    describe('differences from pg', () => {
+        it('sends Dates as UTC ISO strings whatever TZ is, like debugQuery', async () => {
+            await inTimeZone('America/New_York', async () => {
+                expect(await client.run(withoutTimeZone)).toEqual([utc]);
+                expect(await client.raw(debugQuery(withoutTimeZone))).toEqual([utc]);
+            });
+        });
+
+        it('binds objects to non json parameters as "[object Object]", ignoring toPostgres()', async () => {
+            expect(await client.run(objectToText)).toEqual([{v: '[object Object]'}]);
+            expect(await client.run(toPostgres)).toEqual([{v: '[object Object]'}]);
+        });
+
+        it('stores JSON strings bound to jsonb as a JSON string', async () => {
+            expect(await client.run(jsonString)).toEqual([{v: '{"a":1}', t: 'string'}]);
+        });
+
+        it('stores arrays bound to jsonb as an array literal JSON string instead of failing', async () => {
+            expect(await client.run(arrayToJsonb)).toEqual([{v: '{"1","2"}', t: 'string'}]);
+        });
+    });
 
     it('runs inside transactions', async () => {
         const table = `tx test ${process.pid}`;
