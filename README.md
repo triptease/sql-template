@@ -184,7 +184,8 @@ Every push to `triptease/sql-template` that passes the `test` job runs the `publ
 [`.github/workflows/build.yml`](.github/workflows/build.yml), which runs `scripts/release.ts`:
 
 * Version: `0.<git rev-list --count HEAD>.<GITHUB_RUN_NUMBER>`; dist-tag `latest` on `master`, `dev` on other branches.
-* It does a clean `tsc --build`, then writes `<pkg>/dist/package.json` from `<pkg>/src/package.json` (version
+* It does a clean `tsc --build` (without declaration maps, as the `.ts` sources are not published), then
+  writes `<pkg>/dist/package.json` from `<pkg>/src/package.json` (version
   stamped, `workspace:*` replaced by that version, `main`/`types`/`exports` pointing at the `.js`/`.d.ts`
   files, explicit `files`) and copies this README next to it. The `dist` directory is what gets published, so
   import paths never contain `src/` or `dist/`. It fails if any `workspace:` range is left.
@@ -193,6 +194,7 @@ Every push to `triptease/sql-template` that passes the `test` job runs the `publ
   * to **npmjs** only when the repo variable `NPM_PUBLISH` is `true`, with `--access public --provenance`,
     authenticated by npm Trusted Publishing (OIDC), or by an `NPM_TOKEN` secret if one exists.
 * Versions that are already on a registry are skipped, so a failed run can simply be re-run.
+* The staged `dist` directories are kept as the `dist` artifact of the workflow run.
 
 Check what would be published without uploading anything (`npm publish --dry-run`; add `NPM_PUBLISH=true`
 to include npmjs):

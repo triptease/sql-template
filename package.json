@@ -11,6 +11,7 @@
   "scripts": {
     "clean": "rm -rf sql-template/dist sql-template-postgres/dist && find . -name '*.tsbuildinfo' -not -path '*/node_modules/*' -delete",
     "build": "tsc --build sql-template/src sql-template-postgres/src",
+    "build:dist": "tsc --build sql-template/src sql-template-postgres/src --declarationMap false",
     "typecheck": "tsc --build",
     "test": "bun test sql-template/test sql-template-postgres/test"
   },

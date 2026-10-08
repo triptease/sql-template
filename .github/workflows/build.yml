@@ -64,3 +64,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Optional fallback when Trusted Publishing is not configured; empty if the secret does not exist.
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: dist
+          # the staged packages exactly as published (package.json with the stamped version, README, .js/.d.ts)
+          path: '*/dist/'
+          if-no-files-found: warn

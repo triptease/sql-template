@@ -40,9 +40,10 @@ console.log(`registries: ${registries.join(' ')}${registries.includes(NPMJS) ? '
 
 const packages = topological(await publishable());
 
-// Clean build so dist only contains what tsc emits from src.
+// Clean build so dist only contains what tsc emits from src. Declaration maps are left out: they would
+// point at .ts sources that are not published (the .js maps inline their sources instead).
 await $`bun run clean`.cwd(root);
-await $`bun run build`.cwd(root);
+await $`bun run build:dist`.cwd(root);
 
 for (const pkg of packages) await stage(pkg);
 
@@ -136,6 +137,11 @@ async function verify(pkg: Pkg): Promise<void> {
     const entries = await readdir(pkg.dist, {recursive: true});
     const stray = entries.filter(f => /\.(ts|tsx)$/.test(f) && !f.endsWith('.d.ts'));
     if (stray.length) throw new Error(`${pkg.name}: unexpected source files in dist: ${stray.join(', ')}`);
+    for (const file of entries.filter(f => f.endsWith('.d.ts') || f.endsWith('.d.ts.map'))) {
+        if (file.endsWith('.map') || (await Bun.file(join(pkg.dist, file)).text()).includes('sourceMappingURL=')) {
+            throw new Error(`${pkg.name}: ${file} refers to a declaration map, which would point at unpublished sources`);
+        }
+    }
 }
 
 async function publish(pkg: Pkg, registry: string, npmrc: string): Promise<void> {
