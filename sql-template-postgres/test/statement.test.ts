@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'bun:test';
 import {id, ids, spread, SQL} from "@triptease/sql-template";
-import {statement} from "@triptease/sql-template-postgres";
+import {prepareStatement, statement} from "@triptease/sql-template-postgres";
+import type pg from "pg";
 
 describe('statement', () => {
     it('supports correctly escaping identifiers', function() {
@@ -24,5 +25,12 @@ describe('statement', () => {
             text: `INSERT INTO users ("first_name", "last_name") VALUES ($1, $2)`,
             values: ['Dan', 'Bodart']
         });
+    });
+});
+describe('QueryConfig', () => {
+    it('is assignable to pg QueryConfig', () => {
+        const config: pg.QueryConfig = statement(SQL`select ${1}`);
+        const prepared: pg.QueryConfig = prepareStatement(SQL`select ${1}`);
+        expect([config.values, prepared.values]).toEqual([[1], [1]]);
     });
 });

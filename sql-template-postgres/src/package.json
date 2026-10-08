@@ -17,10 +17,6 @@
     ".": "./index.ts"
   },
   "dependencies": {
-    "@triptease/sql-template": "workspace:*",
-    "pg": "^8.7.1"
-  },
-  "devDependencies": {
-    "@types/pg": "^8.6.4"
+    "@triptease/sql-template": "workspace:*"
   }
 }
