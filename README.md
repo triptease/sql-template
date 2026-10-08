@@ -6,55 +6,121 @@ This is yet another SQL tagged template for Typescript/Javascript
 
 * Typescript first
 * Functional/Immutable
-* Super simple implementation (the main SQL function is [3 lines of code](https://github.com/triptease/sql-template/blob/master/sql-template/src/SQL.ts#L5))
+* Super simple implementation (see [SQL.ts](https://github.com/triptease/sql-template/blob/master/sql-template/src/SQL.ts))
 * Full escaping of identifiers and values
-* Plugable to any DB (currently only Postgres @triptease\sql-template-postgres )
+* Plugable to any DB (currently Postgres via `@triptease/sql-template-postgres`, with `pg` or `Bun.sql`)
 * Automatic support for prepareStatement naming (Postgres)
 
 ## Installation
 
 ```shell
 npm install @triptease/sql-template @triptease/sql-template-postgres
+# or
+bun add @triptease/sql-template @triptease/sql-template-postgres
 ```
+
+Both packages are plain ESM JavaScript with type declarations, so they work in Node and Bun.
+`@triptease/sql-template` has no dependencies and `@triptease/sql-template-postgres` depends only on it
+(it does not depend on `pg`; bring your own driver).
 
 ## Usage
 
-```javascript
-import {SQL, id} from "@triptease/sql-template";
-import {statement} from "@triptease/sql-template-postgres";
+### Node with [pg](https://node-postgres.com/)
 
-client.query(statement(SQL`select * from ${id(table)} where name = ${name}`));
+```typescript
+import pg from "pg";
+import {SQL, id, values} from "@triptease/sql-template";
+import {statement, prepareStatement} from "@triptease/sql-template-postgres";
+
+const pool = new pg.Pool();
+const {rows} = await pool.query(statement(SQL`select * from ${id(table)} where name = ${name}`));
+// SQL: select * from "users" where name = $1   values: ['Dan']
+
+// named prepared statement (name defaults to a hash of the SQL)
+await pool.query(prepareStatement(SQL`select * from users where id in (${values(userIds)})`));
 ```
+
+### Bun with [Bun.sql](https://bun.com/docs/api/sql)
+
+```typescript
+import {sql} from "bun";
+import {SQL, id} from "@triptease/sql-template";
+import {unsafe} from "@triptease/sql-template-postgres";
+
+const rows = await unsafe<User[]>(sql, SQL`select * from ${id(table)} where name = ${name}`);
+
+// works with anything that has Bun.sql's unsafe(text, values) method
+await sql.begin(tx => unsafe(tx, SQL`insert into users (name) values (${name})`));
+```
+
+Despite its name (taken from Bun's `sql.unsafe`, which runs SQL text it did not build itself), `unsafe` sends
+every value as a bound parameter and escapes every identifier. To match `pg`, JS arrays are sent as postgres
+array literals (so `= any(${userIds}::int[])` and `text[]` columns work) and Dates as ISO strings. The trade-off
+is that an array bound directly to a `json`/`jsonb` parameter is not supported: wrap it in an object, or use
+`${JSON.stringify(list)}::text::jsonb`. Pass objects (not JSON strings) for `json`/`jsonb` parameters. Statement names
+are not used with Bun as it prepares and caches statements per connection automatically.
+
+### Composing
+
+```typescript
+import {SQL, id, ids, text, values} from "@triptease/sql-template";
+
+const where = SQL`where ${id('name')} = ${name}`;
+const query = SQL`select ${ids(['id', 'name'])} from users ${where}`; // templates nest
+const either = SQL`select * from users where ${values([a, b], text(' or '))}`; // explicit raw separator
+```
+
+Templates are immutable (frozen) and flat. Expressions are identified by a `Symbol.for` brand rather than
+`instanceof`, so templates built by a different copy of `@triptease/sql-template` (e.g. two installed
+versions) still work, while plain data (such as parsed JSON) can never be mistaken for SQL.
 
 ## Cheatsheet
 
-### Core (@triptease/sql-template) 
+### Core (@triptease/sql-template)
 
-| function                                       | Description                                                          |
-|------------------------------------------------|----------------------------------------------------------------------|
-| `SQL`                                          | The main function to create tagged templates for SQL (*DB agnostic*) |
-| `text` (alias `raw`)                           | Input raw SQL without any escaping (*use with care*)                 |
- | `id` / `ids`                                   | Input dynamic identifiers into SQL (*escaped as needed*)             |
- | `value` (optional) / `values` (alias `spread`) | Input one or more values into SQL (*escaped as needed*)              |
+| function                                       | Description                                                                                 |
+|------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `SQL`                                          | The main function to create tagged templates for SQL (*DB agnostic*)                        |
+| `text` (alias `raw`)                           | Input raw SQL without any escaping (*use with care*)                                        |
+| `id` / `ids(names, separator?)`                | Input dynamic identifiers into SQL (*escaped as needed*)                                    |
+| `value` (optional) / `values(list, separator?)` (alias `spread`) | Input one or more values into SQL (*bound as parameters*)                 |
+| `template`                                     | Combine expressions into a (flattened, frozen) template                                     |
+| `isExpression` / `isText` / `isIdentifier` / `isValue` / `isTemplate` / `kindOf` | Type guards based on the expression brand (for adapters) |
 
+`separator` is an Expression and defaults to `text(', ')`.
 
 ### Postgres (@triptease/sql-template-postgres)
 
-| function                                       | Description                                                         |
-|------------------------------------------------|---------------------------------------------------------------------|
-| `statement`                                    | Converts DB agnostic `SQL` template into postgres statement         |
-| `prepareStatement`                             | Converts DB agnostic `SQL` template into postgres prepare statement |
-| `debugQuery`                                   | Used to debug a query (*use with care*)                             |
+| function                                       | Description                                                          |
+|------------------------------------------------|----------------------------------------------------------------------|
+| `statement`                                    | Converts DB agnostic `SQL` template into a postgres statement (`pg`) |
+| `prepareStatement`                             | Converts DB agnostic `SQL` template into a named prepared statement (`pg`) |
+| `unsafe(sql, template)`                        | Runs a template with `Bun.sql` (or a transaction / reserved connection) |
+| `escapeIdentifier` / `escapeLiteral`           | Postgres identifier and string literal escaping (ported from `pg`)   |
+| `debugQuery`                                   | Renders a template with values inlined, for debugging (*see below*) |
 
 *use with care -> Used incorrectly you can open yourself up to SQL injection*
 
+`debugQuery` escapes every value (strings, numbers, booleans, null, Dates, Buffers, arrays and objects), but
+it is meant for logging: execute queries with `statement`/`prepareStatement`/`unsafe` so values are bound as
+parameters. Inlined literals are not always typed the way parameters are (e.g. arrays become array literal
+strings and objects JSON strings, which need a cast in some contexts).
 
-### Extending
+## Breaking changes (since the pg-only releases)
 
-It is incredibly simple to extend to other DBs, have a look at the [postgres implementation](https://github.com/triptease/sql-template/blob/master/sql-template-postgres/src/index.ts#L17). 
+* The `separator` of `values`/`spread`/`ids` is now an Expression: replace `values(xs, ' or ')` with
+  `values(xs, text(' or '))`. Passing a string throws a `TypeError` (it used to be inserted as raw SQL).
+* `@triptease/sql-template-postgres` no longer depends on `pg`; its `QueryConfig` is a local type
+  that is structurally compatible with pg's.
+* Adapters throw on expressions they do not understand instead of silently dropping them, and SQL with an
+  invalid escape sequence (e.g. ``SQL`\u` ``) throws instead of producing the text `undefined`.
+* Public types use `unknown` instead of `any`; `ids` takes `string[]`.
 
+## Extending
 
-
+It is simple to extend to other DBs: switch on `kindOf(expression)` (`'text'`, `'identifier'`, `'value'`,
+`'template'`) and throw on anything else. Have a look at the
+[postgres implementation](https://github.com/triptease/sql-template/blob/master/sql-template-postgres/src/statement.ts).
 
 ## Development
 
@@ -67,3 +133,13 @@ mise install   # installs the pinned node and bun
 
 The repo is a bun workspace: each package has a published `src/package.json` (runtime dependencies only)
 and a private `test/package.json` (test dependencies). Tests import the packages by name.
+
+The postgres integration tests (`sql-template-postgres/test/integration.test.ts`) run real queries through
+both `pg` and `Bun.sql`. They need a database:
+
+```shell
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres ./run
+```
+
+Without `DATABASE_URL` they are skipped locally (with a warning) but fail when `CI=true`; the GitHub Actions
+test job provides a `postgres:18` service.
