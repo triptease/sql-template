@@ -8,7 +8,7 @@ This is yet another SQL tagged template for Typescript/Javascript
 * Functional/Immutable
 * Super simple implementation (see [SQL.ts](https://github.com/triptease/sql-template/blob/master/sql-template/src/SQL.ts))
 * Full escaping of identifiers and values
-* Plugable to any DB (currently Postgres via `@triptease/sql-template-postgres`, with `pg` or `Bun.sql`)
+* Plugable to any DB (currently Postgres via `@triptease/sql-template-postgres` with `pg`)
 * Automatic support for prepareStatement naming (Postgres)
 
 ## Installation
@@ -41,41 +41,12 @@ const {rows} = await pool.query(statement(SQL`select * from ${id(table)} where n
 await pool.query(prepareStatement(SQL`select * from users where id in (${values(userIds)})`));
 ```
 
-### Bun with [Bun.sql](https://bun.com/docs/api/sql)
+### Bun
 
-```typescript
-import {sql} from "bun";
-import {SQL, id} from "@triptease/sql-template";
-import {query} from "@triptease/sql-template-postgres";
-
-const rows = await query<User[]>(sql, SQL`select * from ${id(table)} where name = ${name}`);
-
-// works with anything that has Bun.sql's unsafe(text, values) method
-await sql.begin(tx => query(tx, SQL`insert into users (name) values (${name})`));
-```
-
-`query` runs the template through Bun's `sql.unsafe(text, values)`: it sends
-every value as a bound parameter and escapes every identifier. Statement names are not used with Bun as it
-prepares and caches statements per connection automatically.
-
-To get closer to `pg`, `query` sends JS arrays as postgres array literals (so `= any(${userIds}::int[])` and
-`text[]` columns work), bigints as strings (so `numeric` values outside the int8 range work) and Dates as UTC ISO
-strings. Bun encodes each parameter according to the type postgres infers for it, which the library cannot see,
-so some differences from `pg` remain. These do **not** raise errors, they silently store different data:
-
-| Bound value                                   | `pg`                                   | `Bun.sql` via `query`                         |
-|-----------------------------------------------|----------------------------------------|------------------------------------------------|
-| object to a `json`/`jsonb` parameter          | JSON                                   | JSON                                           |
-| object to any other parameter (e.g. `text`)   | `JSON.stringify(object)`               | the string `[object Object]`                   |
-| JSON string to `json`/`jsonb`                 | the parsed JSON                        | a JSON **string** scalar (double encoded)      |
-| array to `json`/`jsonb`                       | error (invalid input syntax)           | a JSON string of the array literal (`"{\"1\",\"2\"}"`) |
-| Date to `timestamp` (without time zone) / `text` | the process's local time            | UTC (same as `debugQuery`)                     |
-| object with `toPostgres()`                    | its result                             | not supported (`[object Object]`)              |
-
-So with Bun: pass objects (not JSON strings) and only to `json`/`jsonb` parameters; for a JSON string or an
-array use `${JSON.stringify(list)}::text::jsonb` (or wrap the array in an object); and use `timestamptz` (or
-run with `TZ=UTC`) when the same Dates must give the same results with both drivers. The integration tests pin
-each of these differences.
+If you only target Bun, its built-in [`sql`](https://bun.com/docs/api/sql) tagged template already binds values
+and escapes identifiers, so you probably don't need this library. Use it in Bun when your query code also has to
+run on Node with `pg`, or when you want queries as plain immutable values you can build, test and log
+(`debugQuery`) without a connection.
 
 ### Composing
 
@@ -112,18 +83,17 @@ versions) still work, while plain data (such as parsed JSON) can never be mistak
 |------------------------------------------------|----------------------------------------------------------------------|
 | `statement`                                    | Converts DB agnostic `SQL` template into a postgres statement (`pg`) |
 | `prepareStatement`                             | Converts DB agnostic `SQL` template into a named prepared statement (`pg`) |
-| `query(sql, template)`                        | Runs a template with `Bun.sql` (or a transaction / reserved connection) |
 | `escapeIdentifier` / `escapeLiteral`           | Postgres identifier and string literal escaping (ported from `pg`)   |
 | `debugQuery`                                   | Renders a template with values inlined, for debugging (*see below*) |
 
 *use with care -> Used incorrectly you can open yourself up to SQL injection*
 
 `debugQuery` escapes every value (strings, numbers, booleans, null, Dates, Buffers, arrays and objects), but
-it is meant for logging: execute queries with `statement`/`prepareStatement`/`query` so values are bound as
+it is meant for logging: execute queries with `statement`/`prepareStatement` so values are bound as
 parameters. Inlined literals are not always typed the way parameters are (e.g. arrays become array literal
 strings and objects JSON strings, which need a cast in some contexts). Dates are inlined as UTC ISO strings, so for
 `timestamp` (without time zone) or text targets the output only matches what `pg` executes when the process runs
-with `TZ=UTC` (it always matches `query` with Bun).
+with `TZ=UTC`.
 
 ## Breaking changes (since the pg-only releases)
 
@@ -169,7 +139,7 @@ The repo is a bun workspace: each package has a published `src/package.json` (ru
 and a private `test/package.json` (test dependencies). Tests import the packages by name.
 
 The postgres integration tests (`sql-template-postgres/test/integration.test.ts`) run real queries through
-both `pg` and `Bun.sql`. They need a database:
+`pg`. They need a database:
 
 ```shell
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres ./run
