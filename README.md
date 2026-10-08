@@ -46,24 +46,24 @@ await pool.query(prepareStatement(SQL`select * from users where id in (${values(
 ```typescript
 import {sql} from "bun";
 import {SQL, id} from "@triptease/sql-template";
-import {unsafe} from "@triptease/sql-template-postgres";
+import {query} from "@triptease/sql-template-postgres";
 
-const rows = await unsafe<User[]>(sql, SQL`select * from ${id(table)} where name = ${name}`);
+const rows = await query<User[]>(sql, SQL`select * from ${id(table)} where name = ${name}`);
 
 // works with anything that has Bun.sql's unsafe(text, values) method
-await sql.begin(tx => unsafe(tx, SQL`insert into users (name) values (${name})`));
+await sql.begin(tx => query(tx, SQL`insert into users (name) values (${name})`));
 ```
 
-Despite its name (taken from Bun's `sql.unsafe`, which runs SQL text it did not build itself), `unsafe` sends
+`query` runs the template through Bun's `sql.unsafe(text, values)`: it sends
 every value as a bound parameter and escapes every identifier. Statement names are not used with Bun as it
 prepares and caches statements per connection automatically.
 
-To get closer to `pg`, `unsafe` sends JS arrays as postgres array literals (so `= any(${userIds}::int[])` and
+To get closer to `pg`, `query` sends JS arrays as postgres array literals (so `= any(${userIds}::int[])` and
 `text[]` columns work), bigints as strings (so `numeric` values outside the int8 range work) and Dates as UTC ISO
 strings. Bun encodes each parameter according to the type postgres infers for it, which the library cannot see,
 so some differences from `pg` remain. These do **not** raise errors, they silently store different data:
 
-| Bound value                                   | `pg`                                   | `Bun.sql` via `unsafe`                         |
+| Bound value                                   | `pg`                                   | `Bun.sql` via `query`                         |
 |-----------------------------------------------|----------------------------------------|------------------------------------------------|
 | object to a `json`/`jsonb` parameter          | JSON                                   | JSON                                           |
 | object to any other parameter (e.g. `text`)   | `JSON.stringify(object)`               | the string `[object Object]`                   |
@@ -112,18 +112,18 @@ versions) still work, while plain data (such as parsed JSON) can never be mistak
 |------------------------------------------------|----------------------------------------------------------------------|
 | `statement`                                    | Converts DB agnostic `SQL` template into a postgres statement (`pg`) |
 | `prepareStatement`                             | Converts DB agnostic `SQL` template into a named prepared statement (`pg`) |
-| `unsafe(sql, template)`                        | Runs a template with `Bun.sql` (or a transaction / reserved connection) |
+| `query(sql, template)`                        | Runs a template with `Bun.sql` (or a transaction / reserved connection) |
 | `escapeIdentifier` / `escapeLiteral`           | Postgres identifier and string literal escaping (ported from `pg`)   |
 | `debugQuery`                                   | Renders a template with values inlined, for debugging (*see below*) |
 
 *use with care -> Used incorrectly you can open yourself up to SQL injection*
 
 `debugQuery` escapes every value (strings, numbers, booleans, null, Dates, Buffers, arrays and objects), but
-it is meant for logging: execute queries with `statement`/`prepareStatement`/`unsafe` so values are bound as
+it is meant for logging: execute queries with `statement`/`prepareStatement`/`query` so values are bound as
 parameters. Inlined literals are not always typed the way parameters are (e.g. arrays become array literal
 strings and objects JSON strings, which need a cast in some contexts). Dates are inlined as UTC ISO strings, so for
 `timestamp` (without time zone) or text targets the output only matches what `pg` executes when the process runs
-with `TZ=UTC` (it always matches `unsafe` with Bun).
+with `TZ=UTC` (it always matches `query` with Bun).
 
 ## Breaking changes (since the pg-only releases)
 

@@ -7,7 +7,7 @@ import {statement} from './statement.js';
  * the transaction in `sql.begin(tx => ...)` or a connection from `sql.reserve()`.
  * Typed structurally so that "bun" is never imported at runtime.
  */
-export interface UnsafeSQL {
+export interface BunSQL {
     unsafe(text: string, values?: unknown[]): Promise<unknown>;
 }
 
@@ -28,11 +28,10 @@ function bunValue(value: unknown): unknown {
 }
 
 /**
- * Runs the template with Bun.sql as a parameterised query: `await unsafe(sql, SQL\`select ...\`)`.
- * Despite the name (Bun's method for SQL text it did not build itself), every value is a bound parameter
- * and every identifier is escaped.
+ * Runs the template with Bun.sql as a parameterised query: `await query(sql, SQL\`select ...\`)`.
+ * Values are always bound as parameters (via Bun's `sql.unsafe(text, values)`) and identifiers are escaped.
  */
-export function unsafe<T = Record<string, unknown>[]>(sql: UnsafeSQL, template: Template): Promise<T> {
+export function query<T = Record<string, unknown>[]>(sql: BunSQL, template: Template): Promise<T> {
     const {text, values} = statement(template);
     return sql.unsafe(text, values.map(bunValue)) as Promise<T>;
 }

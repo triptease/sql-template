@@ -2,7 +2,7 @@ import {afterAll, beforeAll, describe, expect, it} from 'bun:test';
 import {SQL as BunSQL} from 'bun';
 import pg from 'pg';
 import {id, ids, SQL, type Template, values} from '@triptease/sql-template';
-import {debugQuery, prepareStatement, statement, unsafe} from '@triptease/sql-template-postgres';
+import {debugQuery, prepareStatement, statement, query} from '@triptease/sql-template-postgres';
 
 // Runs real queries against DATABASE_URL with both pg and Bun.sql.
 // Skipped locally when DATABASE_URL is unset, but required in CI.
@@ -205,7 +205,7 @@ describe.skipIf(!url)('postgres integration (pg)', () => {
 describe.skipIf(!url)('postgres integration (Bun.sql)', () => {
     let sql: BunSQL;
     const client: Client = {
-        run: template => unsafe<Row[]>(sql, template).then(rows => [...rows]),
+        run: template => query<Row[]>(sql, template).then(rows => [...rows]),
         raw: text => sql.unsafe<Row[]>(text).then(rows => [...rows]),
     };
 
@@ -243,26 +243,26 @@ describe.skipIf(!url)('postgres integration (Bun.sql)', () => {
 
     it('runs inside transactions', async () => {
         const table = `tx test ${process.pid}`;
-        await unsafe(sql, SQL`DROP TABLE IF EXISTS ${id(table)}`);
-        await unsafe(sql, SQL`CREATE TABLE ${id(table)} (v text)`);
+        await query(sql, SQL`DROP TABLE IF EXISTS ${id(table)}`);
+        await query(sql, SQL`CREATE TABLE ${id(table)} (v text)`);
         try {
             await sql.begin(async tx => {
-                await unsafe(tx, SQL`INSERT INTO ${id(table)} (v) VALUES (${'committed'})`);
+                await query(tx, SQL`INSERT INTO ${id(table)} (v) VALUES (${'committed'})`);
             });
             await expect(sql.begin(async tx => {
-                await unsafe(tx, SQL`INSERT INTO ${id(table)} (v) VALUES (${'rolled back'})`);
+                await query(tx, SQL`INSERT INTO ${id(table)} (v) VALUES (${'rolled back'})`);
                 throw new Error('rollback');
             })).rejects.toThrow('rollback');
-            expect([...await unsafe<Row[]>(sql, SQL`SELECT v FROM ${id(table)}`)]).toEqual([{v: 'committed'}]);
+            expect([...await query<Row[]>(sql, SQL`SELECT v FROM ${id(table)}`)]).toEqual([{v: 'committed'}]);
         } finally {
-            await unsafe(sql, SQL`DROP TABLE IF EXISTS ${id(table)}`);
+            await query(sql, SQL`DROP TABLE IF EXISTS ${id(table)}`);
         }
     });
 
     it('runs on reserved connections', async () => {
         const reserved = await sql.reserve();
         try {
-            expect([...await unsafe<Row[]>(reserved, SQL`SELECT ${'dan'}::text AS name`)]).toEqual([{name: 'dan'}]);
+            expect([...await query<Row[]>(reserved, SQL`SELECT ${'dan'}::text AS name`)]).toEqual([{name: 'dan'}]);
         } finally {
             reserved.release();
         }
