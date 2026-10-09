@@ -34,11 +34,14 @@ import {SQL, id, values} from "@triptease/sql-template";
 import {statement, prepareStatement} from "@triptease/sql-template-postgres";
 
 const pool = new pg.Pool();
-const {rows} = await pool.query(statement(SQL`select * from ${id(table)} where name = ${name}`));
-// SQL: select * from "users" where name = $1   values: ['Dan']
+const table = 'users', name = "O'Brien";
 
-// named prepared statement (name defaults to a hash of the SQL)
-await pool.query(prepareStatement(SQL`select * from users where id in (${values(userIds)})`));
+await pool.query(statement(SQL`select * from ${id(table)} where name = ${name}`));
+// { text: 'select * from "users" where name = $1', values: ["O'Brien"] }
+
+// named prepared statement (the name defaults to a hash of the SQL)
+await pool.query(prepareStatement(SQL`select * from users where id in (${values([1, 2, 3])})`));
+// { name: 'feb13b21…', text: 'select * from users where id in ($1, $2, $3)', values: [1, 2, 3] }
 ```
 
 ### Bun
@@ -53,9 +56,10 @@ run on Node with `pg`, or when you want queries as plain immutable values you ca
 ```typescript
 import {SQL, id, ids, text, values} from "@triptease/sql-template";
 
-const where = SQL`where ${id('name')} = ${name}`;
-const query = SQL`select ${ids(['id', 'name'])} from users ${where}`; // templates nest
-const either = SQL`select * from users where ${values([a, b], text(' or '))}`; // explicit raw separator
+// templates nest, and values() can join them with an explicit (raw) separator
+const filters = [SQL`${id('name')} = ${name}`, SQL`${id('age')} > ${30}`];
+const query = SQL`select ${ids(['id', 'name'])} from users where ${values(filters, text(' and '))}`;
+// select "id", "name" from users where "name" = $1 and "age" > $2
 ```
 
 Templates are immutable (frozen) and flat. Expressions are identified by a `Symbol.for` brand rather than
@@ -162,7 +166,7 @@ Every push to `triptease/sql-template` that passes the `test` job runs the `publ
 * It publishes core first, then postgres, with `npm publish <pkg>/dist`:
   * to **GitHub Packages** (`npm.pkg.github.com`) on every run, using the workflow's `GITHUB_TOKEN`;
   * to **npmjs** only when the repo variable `NPM_PUBLISH` is `true`, with `--access public --provenance`,
-    authenticated by npm Trusted Publishing (OIDC), or by an `NPM_TOKEN` secret if one exists.
+    authenticated by npm Trusted Publishing (OIDC).
 * Versions that are already on a registry are skipped, so a failed run can simply be re-run.
 * The staged `dist` directories are kept as the `dist` artifact of the workflow run.
 
@@ -179,12 +183,11 @@ to include npmjs):
 
 1. On npmjs.com, for **each** of `@triptease/sql-template` and `@triptease/sql-template-postgres`:
    Settings → Trusted Publisher → GitHub Actions, organization `triptease`, repository `sql-template`,
-   workflow filename `build.yml`, environment empty. The workflow filename is part of the trust
-   relationship, so do not rename `build.yml`. Once it works, npm recommends disallowing token publishing
-   for the packages (Settings → Publishing access).
+   workflow filename `build.yml`, environment empty, allowed actions: `npm publish` only. The workflow
+   filename is part of the trust relationship, so do not rename `build.yml`. Publishing access is set to
+   "require two-factor authentication and disallow tokens", so only this workflow can publish.
 2. In the GitHub repo, set the Actions variable `NPM_PUBLISH` to `true` (Settings → Secrets and variables →
    Actions → Variables). Until then npmjs publishing is skipped and only GitHub Packages is published.
-   (Alternative to step 1: add an `NPM_TOKEN` repo secret with publish rights; the publish step uses it if set.)
 3. GitHub Packages: after the first publish, check both packages under the org's Packages page, make sure
    they are linked to this repository and set their visibility to public if they should be visible
    outside the org.
